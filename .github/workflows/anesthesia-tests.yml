@@ -8,6 +8,7 @@ on:
   pull_request:
     paths:
       - 'anesthesia_mod_english_v3_2.js'
+      - 'anesthesia_mod_english_v3_3.js'
       - 'tests/**'
       - '.github/workflows/anesthesia-tests.yml'
 
@@ -22,6 +23,8 @@ jobs:
         with:
           node-version: '22'
       - name: Verify JavaScript syntax
-        run: node --check anesthesia_mod_english_v3_2.js
+        run: |
+          node --check anesthesia_mod_english_v3_2.js
+          node --check anesthesia_mod_english_v3_3.js
       - name: Run smoke tests
-        run: node --test tests/anesthesia_smoke.test.js
+        run: node --test tests/*.test.js
