@@ -208,6 +208,7 @@
             desc: "Frozen anesthetic: first melt, then vaporize. Fictional gameplay only."
         };
     }
+    condensedPhases("anesthesia", "Anesthesia", "#aabfd2", "#dce8f0", -88.5, -90.8);
     condensedPhases("nitrous_oxide", "Nitrous Oxide", "#a9c7ef", "#dcecff", -88.5, -90.8);
     condensedPhases("isoflurane", "Isoflurane", "#b5b8de", "#e0e2fb", 48.5, -122);
     condensedPhases("sevoflurane", "Sevoflurane", "#9fdac0", "#dcf5e9", 58.5, -130);
