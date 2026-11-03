@@ -107,3 +107,52 @@ test("manual wake clears sleep immediately and restores ordinary movement AI", (
     w.world.elements.body.tick(w.body);
     assert.equal(w.calls.bodyAI, 1);
 });
+
+test("light sedation remains mobile without falsely displaying a sleep marker", () => {
+    const w = createWorld();
+    for (const p of [w.head, w.body]) {
+        p.anDose = 25; p.anStage = 1;
+    }
+    w.world.elements.head.tick(w.head);
+    w.world.elements.body.tick(w.body);
+    assert.equal(w.head.anStage, 1);
+    assert.equal(w.body.anStage, 1);
+    assert.equal(w.calls.headAI, 1);
+    assert.equal(w.calls.bodyAI, 1);
+    let painted = false;
+    w.drawn[0](w.head, { save() {}, restore() {},
+        strokeText() { painted = true; }, fillText() { painted = true; } });
+    assert.equal(painted, false);
+});
+
+test("unconsciousness cannot end before the minimum sleep deadline", () => {
+    const w = createWorld();
+    w.world.elements.anesthetize_power.tool(w.head);
+    w.world.pixelTicks = w.head.anSleepUntil - 1;
+    w.world.elements.head.tick(w.head);
+    w.world.elements.body.tick(w.body);
+    assert.equal(w.head.anStage, 3);
+    assert.equal(w.body.anStage, 3);
+    assert.equal(w.calls.bodyAI, 0);
+    assert.ok(w.head.anSleepUntil > w.world.pixelTicks);
+});
+
+test("relation-linked head and body fall together without a second head move", () => {
+    const w = createWorld();
+    w.head._r = 42; w.body._r = 42;
+    w.world.tryMove = (p, x, y) => {
+        assert.equal(p.element, "body");
+        assert.equal(x, p.x);
+        assert.equal(y, p.y + 1);
+        w.head.y++; w.body.y++;
+        // Sandboxels can return undefined for relation moves.
+        return undefined;
+    };
+    w.world.elements.anesthetize_power.tool(w.body);
+    w.world.elements.head.tick(w.head);
+    w.world.elements.body.tick(w.body);
+    assert.equal(w.head.y, 8);
+    assert.equal(w.body.y, 9);
+    assert.equal(w.calls.headAI, 0);
+    assert.equal(w.calls.bodyAI, 0);
+});
