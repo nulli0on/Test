@@ -156,3 +156,29 @@ test("relation-linked head and body fall together without a second head move", (
     assert.equal(w.calls.headAI, 0);
     assert.equal(w.calls.bodyAI, 0);
 });
+
+test("falling through liquid keeps the sleeping head attached", () => {
+    const w = createWorld();
+    const water = { element: "water", x: 6, y: 9, temp: 20 };
+    w.pixels.push(water);
+    w.world.tryMove = (p, x, y) => {
+        assert.equal(p.element, "body");
+        assert.equal(y, 9);
+        // Simulate Sandboxels density displacement.
+        water.y = p.y;
+        p.y = y;
+        return true;
+    };
+    w.world.swapPixels = (a, b) => {
+        const x = a.x, y = a.y;
+        a.x = b.x; a.y = b.y;
+        b.x = x; b.y = y;
+    };
+    w.world.elements.anesthetize_power.tool(w.head);
+    w.world.elements.head.tick(w.head);
+    w.world.elements.body.tick(w.body);
+    assert.equal(w.body.y, 9);
+    assert.equal(w.head.y, 8);
+    assert.equal(water.y, 7);
+    assert.equal(w.calls.bodyAI, 0);
+});
