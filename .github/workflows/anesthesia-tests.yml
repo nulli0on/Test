@@ -1,0 +1,27 @@
+name: Anesthesia mod smoke tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/anesthesia-*'
+  pull_request:
+    paths:
+      - 'anesthesia_mod_english_v3_2.js'
+      - 'tests/**'
+      - '.github/workflows/anesthesia-tests.yml'
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify JavaScript syntax
+        run: node --check anesthesia_mod_english_v3_2.js
+      - name: Run smoke tests
+        run: node --test tests/anesthesia_smoke.test.js
