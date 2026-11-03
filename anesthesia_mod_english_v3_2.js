@@ -1,5 +1,5 @@
 /*
- * Sandboxels - Advanced Anesthesia v3.2.1 (English only, mobile-friendly)
+ * Sandboxels - Advanced Anesthesia v3.3.0 (English only, mobile-friendly)
  * FICTITIOUS in-game crafting only: NOT real chemistry or medical instructions.
  * Replaces v3.0 and v3.1. Remove older anesthesia mods before enabling this file.
  *
@@ -19,13 +19,13 @@
         category: "special",
         state: "solid",
         density: 1000,
-        desc: "SUCCESS: Advanced Anesthesia v3.2.1 is running. All recipes are fictional gameplay mechanics."
+        desc: "SUCCESS: Advanced Anesthesia v3.3.0 is running. All recipes are fictional gameplay mechanics."
     };
 
     var MAX_DOSE = 120;
-    // Minimum deep sleep: 40 simulated seconds at Sandboxels' default 30 TPS.
-    // A timer based on pixelTicks pauses when the simulation pauses.
-    var SLEEP_TICKS = 40 * 30;
+    // Minimum 90 simulated seconds at 30 TPS (gameplay balance, not clinical timing).
+    // The timer freezes with the simulation.
+    var SLEEP_TICKS = 90 * 30;
     var STAGES = ["Awake", "Sedated", "Deeply Sedated", "Anesthetized"];
     var AGENTS = {
         anesthesia:   { label: "Standard Anesthesia", uptake: 1.6, clear: 1.0 },
@@ -122,37 +122,39 @@
         var active = best || p.anAgent || (other && other.anAgent) || "anesthesia";
         if (best) dose += bestUptake;
         else if (dose > 0) {
-            dose -= 0.34 * (AGENTS[active] ? AGENTS[active].clear : 1);
+            dose -= 0.12 * (AGENTS[active] ? AGENTS[active].clear : 1);
             dose -= Math.min(3, counts._oxygen || 0) * 0.5;
             if (vent > pixelTicks) dose -= 1.10;
         }
         setHuman(p, dose, vent, active);
     }
 
-    // A sleeping human must still fall and react to heat, fire and electricity,
-    // but must NOT execute the vanilla body's walk/jump AI. Setting dir=0 alone
-    // is not sufficient: vanilla can interpret that as a vertical jump.
+    // All sedated characters bypass vanilla diagonal-step/walk/jump AI.
+    // Only body-driven gravity and ambient heat/fire/electricity continue.
     function sleepingTick(p) {
-        var head = p.element === "body" ? companion(p) : null;
-        var oldX = p.x, oldY = p.y;
-        if (typeof tryMove === "function" && tryMove(p, p.x, p.y + 1)) {
-            // In versions without automatic related-pixel movement, pull the
-            // head down with its body. Do not move it twice if relations did so.
-            if (head && !head.del && head.x === oldX && head.y === oldY - 1) {
-                if (typeof isEmpty === "function" && isEmpty(oldX, oldY)) {
-                    movePixel(head, oldX, oldY);
-                } else if (typeof swapPixels === "function" && getPixel(oldX, oldY)) {
-                    swapPixels(head, getPixel(oldX, oldY));
-                }
+        var partner = companion(p);
+        if ((p.element === "body" || !partner) && typeof tryMove === "function") {
+            var oldX = p.x, oldY = p.y;
+            var head = p.element === "body" ? partner : null;
+            tryMove(p, oldX, oldY + 1);
+            // Relation-linked pairs are already moved together by Sandboxels.
+            // For unlinked pairs, advance the head only into the vacated body
+            // cell, never via a displacement/swap that can make it jump upward.
+            if (head && !head.del && p.x === oldX && p.y === oldY + 1 &&
+                head.x === oldX && head.y === oldY - 1 &&
+                typeof isEmpty === "function" && isEmpty(oldX, oldY) &&
+                typeof movePixel === "function") {
+                movePixel(head, oldX, oldY);
             }
         }
+        if (p.del || !isHuman(p)) return;
         if (typeof doHeat === "function") doHeat(p);
         if (typeof doBurning === "function") doBurning(p);
         if (typeof doElectricity === "function") doElectricity(p);
         if (p.temp > 37) p.temp -= Math.min(1, p.temp - 37);
         else if (p.temp < 37) p.temp += Math.min(1, 37 - p.temp);
-        if (head && head.dead) p.dead = head.dead;
-        if (p.anStage) p.panic = 0;
+        if (partner && partner.dead) p.dead = partner.dead;
+        p.panic = 0;
     }
     function craftGas(p) {
         if (!p || p.del) return;
@@ -184,6 +186,52 @@
     defineVapor("sevoflurane", "Sevoflurane Vapor", ["#d3f5e2", "#bdeacc"], 3.8, "Methane + steam, 100 C");
     defineVapor("desflurane", "Desflurane Vapor", ["#ffe0d6", "#f8c5d2"], 4.1, "Hydrogen + CO2, 100 C");
 
+    // Selectable liquid and ice states. These approximate/game-tuned phase
+    // temperatures are NOT medical guidance or synthesis instructions.
+    // Solid and liquid forms only induce anesthesia after becoming vapor.
+    function condensedPhases(gas, name, liquidColor, iceColor, boiling, freezing) {
+        var liquid = "liquid_" + gas, ice = "frozen_" + gas;
+        elements[gas].temp = boiling + 2;
+        elements[gas].tempLow = boiling - 0.5;
+        elements[gas].stateLow = liquid;
+        elements[liquid] = {
+            name: "Liquid " + name, color: liquidColor, behavior: behaviors.LIQUID,
+            category: "liquids", state: "liquid", density: 1300,
+            viscosity: 35, temp: boiling - 1, tempHigh: boiling, stateHigh: gas,
+            tempLow: freezing, stateLow: ice,
+            desc: "Liquid anesthetic: heat to produce vapor. Fictional gameplay only."
+        };
+        elements[ice] = {
+            name: "Frozen " + name, color: iceColor, behavior: behaviors.WALL,
+            category: "solids", state: "solid", density: 1450,
+            temp: freezing - 3, tempHigh: freezing + 0.5, stateHigh: liquid,
+            desc: "Frozen anesthetic: first melt, then vaporize. Fictional gameplay only."
+        };
+    }
+    condensedPhases("nitrous_oxide", "Nitrous Oxide", "#a9c7ef", "#dcecff", -88.5, -90.8);
+    condensedPhases("isoflurane", "Isoflurane", "#b5b8de", "#e0e2fb", 48.5, -122);
+    condensedPhases("sevoflurane", "Sevoflurane", "#9fdac0", "#dcf5e9", 58.5, -130);
+    condensedPhases("desflurane", "Desflurane", "#ebbac2", "#f9e1e5", 23, -108);
+
+    // Nonphysical Z: keeps skin/clothing exactly their original colors.
+    // Uses the engine's drawing hook, not a new pixel or animation.
+    if (typeof renderEachPixel === "function") {
+        renderEachPixel(function (p, ctx) {
+            if (!p || p.del || p.dead || p.element !== "head") return;
+            if (!((p.anStage || 0) >= 2 || (p.anSleepUntil || 0) > pixelTicks)) return;
+            var scale = typeof pixelSize === "number" ? pixelSize : 6;
+            var size = Math.max(8, Math.round(scale * 1.5));
+            ctx.save();
+            ctx.font = "bold " + size + "px sans-serif";
+            ctx.lineWidth = Math.max(1, Math.round(scale * 0.2));
+            ctx.strokeStyle = "#30405c";
+            ctx.fillStyle = "#c0dbff";
+            ctx.strokeText("z", (p.x + 0.7) * scale, (p.y - 0.2) * scale);
+            ctx.fillText("z", (p.x + 0.7) * scale, (p.y - 0.2) * scale);
+            ctx.restore();
+        });
+    }
+
     // Wrap only the relevant elements, keeping the mod light on mobile.
     // Apply anesthesia BEFORE vanilla movement, and bypass voluntary AI when
     // deeply sedated or asleep; passive gravity/environmental effects continue.
@@ -194,7 +242,7 @@
             if (isHumanPart) {
                 if (!p.del && p.element === elementName) humanTick(p);
                 if (p.del || p.element !== elementName) return;
-                if (!p.dead && p.anStage >= 2) sleepingTick(p);
+                if (!p.dead && (p.anStage >= 1 || (p.anSleepUntil || 0) > pixelTicks)) sleepingTick(p);
                 else if (typeof original === "function") original(p);
             } else {
                 if (typeof original === "function") original(p);
