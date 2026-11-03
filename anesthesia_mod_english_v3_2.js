@@ -137,14 +137,19 @@
             var oldX = p.x, oldY = p.y;
             var head = p.element === "body" ? partner : null;
             tryMove(p, oldX, oldY + 1);
-            // Relation-linked pairs are already moved together by Sandboxels.
-            // For unlinked pairs, advance the head only into the vacated body
-            // cell, never via a displacement/swap that can make it jump upward.
+            // Relation-linked pairs already move together in Sandboxels.
+            // For ordinary pairs, bring the head DOWN into the vacated body
+            // cell. If a displaced liquid or gas occupies that cell, swap it
+            // into the old head position, as vanilla human gravity does.
             if (head && !head.del && p.x === oldX && p.y === oldY + 1 &&
-                head.x === oldX && head.y === oldY - 1 &&
-                typeof isEmpty === "function" && isEmpty(oldX, oldY) &&
-                typeof movePixel === "function") {
-                movePixel(head, oldX, oldY);
+                head.x === oldX && head.y === oldY - 1) {
+                var displaced = typeof getPixel === "function" ? getPixel(oldX, oldY) : null;
+                if (!displaced && typeof movePixel === "function") {
+                    movePixel(head, oldX, oldY);
+                } else if (displaced && displaced !== head &&
+                    typeof swapPixels === "function") {
+                    swapPixels(head, displaced);
+                }
             }
         }
         if (p.del || !isHuman(p)) return;
