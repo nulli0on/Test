@@ -129,7 +129,7 @@
         setHuman(p, dose, vent, active);
     }
 
-    // All sedated characters bypass vanilla diagonal-step/walk/jump AI.
+    // Deeply sedated and unconscious characters bypass the vanilla jump/walk AI.\n    // Light sedation still permits normal movement; it is not sleep.
     // Only body-driven gravity and ambient heat/fire/electricity continue.
     function sleepingTick(p) {
         var partner = companion(p);
@@ -243,7 +243,7 @@
             if (isHumanPart) {
                 if (!p.del && p.element === elementName) humanTick(p);
                 if (p.del || p.element !== elementName) return;
-                if (!p.dead && (p.anStage >= 1 || (p.anSleepUntil || 0) > pixelTicks)) sleepingTick(p);
+                if (!p.dead && (p.anStage >= 2 || (p.anSleepUntil || 0) > pixelTicks)) sleepingTick(p);
                 else if (typeof original === "function") original(p);
             } else {
                 if (typeof original === "function") original(p);
